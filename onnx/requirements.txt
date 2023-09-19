@@ -1,0 +1,6 @@
+onnxruntime-gpu
+onnxruntime
+fastapi
+uvicorn
+python-multipart
+#yolov5
