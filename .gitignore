@@ -163,3 +163,7 @@ yolov5
 models
 test.py
 PaddleOCR
+scripts/doc
+scripts/en_PP-OCRv3_det_infer
+scripts/en_PP-OCRv3_rec_infer
+scripts/ppocr
