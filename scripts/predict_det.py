@@ -1,18 +1,6 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import os
 import sys
+from copy import deepcopy
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__dir__)
@@ -60,7 +48,6 @@ class TextDetector(object):
             }
         }]
         postprocess_params = {}
-
         postprocess_params['name'] = 'DBPostProcess'
         postprocess_params["thresh"] = 0.3
         postprocess_params["box_thresh"] = 0.6
@@ -122,8 +109,27 @@ class TextDetector(object):
         return dt_boxes
 
     def __call__(self, img):
+        img_from_triton = deepcopy(img)
+        inputs = []
+        outputs = []
+        img_from_triton = cv2.resize(img_from_triton, (384, 544))
+        img_from_triton = np.expand_dims(img_from_triton, axis=0)
+        img_from_triton = np.transpose(img_from_triton, (0, 3, 1, 2))
+        img_tri_shape = list(img_from_triton.shape)
+        inputs.append(grpcclient.InferInput('images', img_tri_shape, "UINT8"))
+        outputs.append(grpcclient.InferRequestedOutput('output'))
+
+        inputs[0].set_data_from_numpy(img_from_triton)
+        
+        results = self.triton_client.infer(model_name="paddle_pre_det",
+                                           inputs=inputs,
+                                           outputs=outputs)
+        
+        img_from_triton_ = results.as_numpy('output')
+        print(img_from_triton_.shape)
+
         #Preprocess
-        ori_im = img.copy()
+        ori_im = img.copy() #H,W,C
         data = {'image': img}
         data = transform(data, self.preprocess_op)
         img, shape_list = data
@@ -132,13 +138,14 @@ class TextDetector(object):
         img = np.expand_dims(img, axis=0)
         shape_list = np.expand_dims(shape_list, axis=0)
         img = img.copy()
-        img_shape = list(img.shape)
-        # print(img_shape)
+        print(shape_list, img.shape)
         
+        # Infer
+        img_shape = list(img_from_triton_.shape)
         inputs = []
         inputs.append(grpcclient.InferInput("x", img_shape, "FP32"))
-        inputs[0].set_data_from_numpy(img)
-        
+        inputs[0].set_data_from_numpy(img_from_triton_)
+    
         outputs = []
         outputs.append(grpcclient.InferRequestedOutput("sigmoid_0.tmp_0"))
         results =self.triton_client.infer(model_name=self.model_name,
@@ -146,17 +153,6 @@ class TextDetector(object):
                                           outputs=outputs)
         
         output = results.as_numpy("sigmoid_0.tmp_0")
-
-        # #Infers
-        # self.input_tensor.copy_from_cpu(img)
-        # self.predictor.run()
-        # outputs = []
-        # for output_tensor in self.output_tensors:
-        #     output = output_tensor.copy_to_cpu()
-        #     outputs.append(output)
-        # print(type(outputs[0]))
-        # print(outputs[0].shape)
-
         preds = {}
         preds['maps'] = output
         
