@@ -10,12 +10,12 @@ input [
 ]
 output [
   {
-    name: "output"
+    name: "pre_det_output"
     data_type: TYPE_FP32
     dims: [3,-1,-1]
   },
   {
-    name: "shape_list"
+    name: "pre_det_shape_list"
     data_type: TYPE_FP32
     dims: [1, 4]
   }

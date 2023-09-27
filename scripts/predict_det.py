@@ -22,7 +22,6 @@ import tritonclient.grpc as grpcclient
 import json
 logger = get_logger()
 
-
 class TextDetector(object):
     def __init__(self, args):
         self.args = args
@@ -98,8 +97,8 @@ class TextDetector(object):
         
         inputs.append(grpcclient.InferInput('images', img_tri_shape, "UINT8"))
         
-        outputs.append(grpcclient.InferRequestedOutput('output'))
-        outputs.append(grpcclient.InferRequestedOutput('shape_list'))
+        outputs.append(grpcclient.InferRequestedOutput('pre_det_output'))
+        outputs.append(grpcclient.InferRequestedOutput('pre_det_shape_list'))
 
         inputs[0].set_data_from_numpy(img_from_triton)
         
@@ -107,18 +106,15 @@ class TextDetector(object):
                                            inputs=inputs,
                                            outputs=outputs)
         
-        img_from_triton_ = results.as_numpy('output')[0]
-        shape_list_from_triton = results.as_numpy('shape_list')[0]
-        print(img_from_triton_.shape)
-        print(shape_list_from_triton.shape)
-
+        pre_det_output = results.as_numpy('pre_det_output')
+        pre_det_shape_list = results.as_numpy('pre_det_shape_list')
 
         # Infer
-        img_shape = list(img_from_triton_.shape)
+        img_shape = list(pre_det_output.shape)
         
         inputs = []
         inputs.append(grpcclient.InferInput("x", img_shape, "FP32"))
-        inputs[0].set_data_from_numpy(img_from_triton_)
+        inputs[0].set_data_from_numpy(pre_det_output)
     
         outputs = []
         outputs.append(grpcclient.InferRequestedOutput("sigmoid_0.tmp_0"))
@@ -131,12 +127,11 @@ class TextDetector(object):
         preds['maps'] = output
         
         #Postprocess
-        post_result = self.postprocess_op(preds, shape_list_from_triton)
+        post_result = self.postprocess_op(preds, pre_det_shape_list)
         dt_boxes = post_result[0]['points']
         dt_boxes = self.filter_tag_det_res(dt_boxes, img.shape)
 
         return dt_boxes
-
 
 if __name__ == "__main__":
     args = utility.parse_args()

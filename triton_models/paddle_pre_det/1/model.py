@@ -8,10 +8,10 @@ import numpy as np
 class TritonPythonModel:
     def initialize(self, args):
         self.model_config = json.loads(args["model_config"])
-        output_config_0 = pb_utils.get_output_config_by_name(self.model_config, "output")
+        output_config_0 = pb_utils.get_output_config_by_name(self.model_config, "pre_det_output")
         self.output_dtype_0 = pb_utils.triton_string_to_numpy(output_config_0["data_type"])
 
-        output_config_1 = pb_utils.get_output_config_by_name(self.model_config, "shape_list")
+        output_config_1 = pb_utils.get_output_config_by_name(self.model_config, "pre_det_shape_list")
         self.output_dtype_1 = pb_utils.triton_string_to_numpy(output_config_1["data_type"])
         
         pre_process_list = [{
@@ -51,18 +51,16 @@ class TritonPythonModel:
                 img, shape_list = data
                 if img is None:
                     return None, 0
-                img = np.expand_dims(img, axis=0)
-                shape_list = np.expand_dims(shape_list, axis=0)
                 results.append(img)
                 results_shape.append(shape_list)
 
             results = np.array(results)
             results = np.ascontiguousarray(results, dtype=self.output_dtype_0)
-            out_tensor_0 = pb_utils.Tensor("output", results)
+            out_tensor_0 = pb_utils.Tensor("pre_det_output", results)
             
             results_shape = np.array(results_shape)
             results_shape = np.ascontiguousarray(results_shape, dtype=self.output_dtype_1)
-            out_tensor_1 = pb_utils.Tensor("shape_list", results_shape)
+            out_tensor_1 = pb_utils.Tensor("pre_det_shape_list", results_shape)
 
             inference_response = pb_utils.InferenceResponse(output_tensors=[out_tensor_0, out_tensor_1])
             responses.append(inference_response)
