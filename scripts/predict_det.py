@@ -28,25 +28,7 @@ class TextDetector(object):
         self.args = args
         self.det_algorithm = args.det_algorithm
         self.use_onnx = args.use_onnx
-        pre_process_list = [{
-            'DetResizeForTest': {
-                'limit_side_len': args.det_limit_side_len,
-                'limit_type': args.det_limit_type,
-            }
-        }, {
-            'NormalizeImage': {
-                'std': [0.229, 0.224, 0.225],
-                'mean': [0.485, 0.456, 0.406],
-                'scale': '1./255.',
-                'order': 'hwc'
-            }
-        }, {
-            'ToCHWImage': None
-        }, {
-            'KeepKeys': {
-                'keep_keys': ['image', 'shape']
-            }
-        }]
+
         postprocess_params = {}
         postprocess_params['name'] = 'DBPostProcess'
         postprocess_params["thresh"] = 0.3
@@ -57,11 +39,8 @@ class TextDetector(object):
         postprocess_params["score_mode"] = 'fast'
         postprocess_params["box_types"] = 'quad'
 
-        self.preprocess_op = create_operators(pre_process_list)
         self.postprocess_op = build_post_process(postprocess_params)
         self.predictor, self.input_tensor, self.output_tensors, self.config = utility.create_predictor(args, 'det', logger)
-        
-        self.preprocess_op = create_operators(pre_process_list)
 
         self.model_name = "paddle_infer_text_det"
         self.url = '192.168.1.10:8001'
@@ -110,14 +89,17 @@ class TextDetector(object):
 
     def __call__(self, img):
         img_from_triton = deepcopy(img)
+        
         inputs = []
         outputs = []
-        img_from_triton = cv2.resize(img_from_triton, (384, 544))
         img_from_triton = np.expand_dims(img_from_triton, axis=0)
         img_from_triton = np.transpose(img_from_triton, (0, 3, 1, 2))
         img_tri_shape = list(img_from_triton.shape)
+        
         inputs.append(grpcclient.InferInput('images', img_tri_shape, "UINT8"))
+        
         outputs.append(grpcclient.InferRequestedOutput('output'))
+        outputs.append(grpcclient.InferRequestedOutput('shape_list'))
 
         inputs[0].set_data_from_numpy(img_from_triton)
         
@@ -125,23 +107,15 @@ class TextDetector(object):
                                            inputs=inputs,
                                            outputs=outputs)
         
-        img_from_triton_ = results.as_numpy('output')
+        img_from_triton_ = results.as_numpy('output')[0]
+        shape_list_from_triton = results.as_numpy('shape_list')[0]
         print(img_from_triton_.shape)
+        print(shape_list_from_triton.shape)
 
-        #Preprocess
-        ori_im = img.copy() #H,W,C
-        data = {'image': img}
-        data = transform(data, self.preprocess_op)
-        img, shape_list = data
-        if img is None:
-            return None, 0
-        img = np.expand_dims(img, axis=0)
-        shape_list = np.expand_dims(shape_list, axis=0)
-        img = img.copy()
-        print(shape_list, img.shape)
-        
+
         # Infer
         img_shape = list(img_from_triton_.shape)
+        
         inputs = []
         inputs.append(grpcclient.InferInput("x", img_shape, "FP32"))
         inputs[0].set_data_from_numpy(img_from_triton_)
@@ -157,9 +131,9 @@ class TextDetector(object):
         preds['maps'] = output
         
         #Postprocess
-        post_result = self.postprocess_op(preds, shape_list)
+        post_result = self.postprocess_op(preds, shape_list_from_triton)
         dt_boxes = post_result[0]['points']
-        dt_boxes = self.filter_tag_det_res(dt_boxes, ori_im.shape)
+        dt_boxes = self.filter_tag_det_res(dt_boxes, img.shape)
 
         return dt_boxes
 
