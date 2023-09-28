@@ -51,6 +51,7 @@ class TritonPythonModel:
                 img, shape_list = data
                 if img is None:
                     return None, 0
+
                 results.append(img)
                 results_shape.append(shape_list)
 

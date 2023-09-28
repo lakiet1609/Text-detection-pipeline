@@ -87,8 +87,8 @@ class TextDetector(object):
         return dt_boxes
 
     def __call__(self, img):
+        #Text Preprocess
         img_from_triton = deepcopy(img)
-        
         inputs = []
         outputs = []
         img_from_triton = np.expand_dims(img_from_triton, axis=0)
@@ -97,41 +97,38 @@ class TextDetector(object):
         
         inputs.append(grpcclient.InferInput('images', img_tri_shape, "UINT8"))
         
-        outputs.append(grpcclient.InferRequestedOutput('pre_det_output'))
-        outputs.append(grpcclient.InferRequestedOutput('pre_det_shape_list'))
+        outputs.append(grpcclient.InferRequestedOutput('infer_output'))
+        outputs.append(grpcclient.InferRequestedOutput('infer_shape_list'))
 
         inputs[0].set_data_from_numpy(img_from_triton)
         
-        results = self.triton_client.infer(model_name="paddle_pre_det",
+        results = self.triton_client.infer(model_name="paddle_text_det",
                                            inputs=inputs,
                                            outputs=outputs)
         
-        pre_det_output = results.as_numpy('pre_det_output')
-        pre_det_shape_list = results.as_numpy('pre_det_shape_list')
+        pre_infer_output = results.as_numpy('infer_output')
+        infer_shape_list = results.as_numpy('infer_shape_list')
 
-        # Infer
-        img_shape = list(pre_det_output.shape)
-        
+
+        # Text Postprocess
         inputs = []
-        inputs.append(grpcclient.InferInput("x", img_shape, "FP32"))
-        inputs[0].set_data_from_numpy(pre_det_output)
-    
         outputs = []
-        outputs.append(grpcclient.InferRequestedOutput("sigmoid_0.tmp_0"))
-        results =self.triton_client.infer(model_name=self.model_name,
-                                          inputs=inputs,
-                                          outputs=outputs)
-        
-        output = results.as_numpy("sigmoid_0.tmp_0")
-        preds = {}
-        preds['maps'] = output
-        
-        #Postprocess
-        post_result = self.postprocess_op(preds, pre_det_shape_list)
-        dt_boxes = post_result[0]['points']
-        dt_boxes = self.filter_tag_det_res(dt_boxes, img.shape)
+        b,c,h,w = pre_infer_output.shape
 
-        return dt_boxes
+        inputs.append(grpcclient.InferInput('post_det_input', [b,1,h,w], "FP32"))
+        inputs.append(grpcclient.InferInput('post_shape_list_input', [1,4], "FP32"))
+        
+        outputs.append(grpcclient.InferRequestedOutput('post_det_output'))
+
+        inputs[0].set_data_from_numpy(pre_infer_output)
+        inputs[1].set_data_from_numpy(infer_shape_list)
+
+        results = self.triton_client.infer(model_name="paddle_post_det",
+                                           inputs=inputs,
+                                           outputs=outputs)
+        
+        post_result_from_triton = results.as_numpy('post_det_output').astype(np.float32)
+        return post_result_from_triton
 
 if __name__ == "__main__":
     args = utility.parse_args()

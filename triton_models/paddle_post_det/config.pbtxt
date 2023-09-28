@@ -1,0 +1,28 @@
+name: "paddle_post_det"
+backend: "python"
+max_batch_size: 6
+input [
+  {
+    name: "post_shape_list_input"
+    data_type: TYPE_FP32
+    dims: [4]
+  },
+  {
+    name: "post_det_input"
+    data_type: TYPE_FP32
+    dims: [1,-1,-1]
+  }
+]
+output [
+  {
+    name: "post_det_output"
+    data_type: TYPE_FP32
+    dims: [4,2]
+  }
+]
+instance_group [
+    {
+      count: 1
+      kind: KIND_CPU
+    }
+]
