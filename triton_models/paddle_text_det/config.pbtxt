@@ -10,14 +10,9 @@ input [
 ]
 output [
   {
-    name: "infer_output"
+    name: "text_det_output"
     data_type: TYPE_FP32
-    dims: [1,-1,-1]
-  },
-  {
-    name: "infer_shape_list"
-    data_type: TYPE_FP32
-    dims: [1,4]
+    dims: [4,2]
   }
 ]
 
@@ -36,7 +31,7 @@ ensemble_scheduling {
       }
       output_map {
         key: "pre_det_shape_list"
-        value: "infer_shape_list"
+        value: "post_shape_list_input"
       }
     },
     {
@@ -45,10 +40,26 @@ ensemble_scheduling {
       input_map {
         key: "x"
         value: "x"
-      },
+      }
       output_map {
         key: "sigmoid_0.tmp_0"
-        value: "infer_output"
+        value: "post_det_input"
+      }
+    },
+    {
+      model_name: "paddle_post_det"
+      model_version: -1
+      input_map {
+        key: "post_det_input"
+        value: "post_det_input"
+      }
+      input_map {
+        key: "post_shape_list_input"
+        value: "post_shape_list_input"
+      }
+      output_map {
+        key: "post_det_output"
+        value: "text_det_output"
       }
     }
   ]

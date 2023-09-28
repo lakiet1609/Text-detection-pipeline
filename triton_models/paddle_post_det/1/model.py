@@ -63,12 +63,12 @@ class TritonPythonModel:
             post_text_det_inputs = pb_utils.get_input_tensor_by_name(request, "post_det_input").as_numpy()
             post_shape_list_inputs = pb_utils.get_input_tensor_by_name(request, "post_shape_list_input").as_numpy()
 
-            # img_shape = (post_shape_list_inputs[0][0], post_shape_list_inputs[0][1], 3)
+            img_shape = (post_shape_list_inputs[0][0], post_shape_list_inputs[0][1], 3)
             preds = {}
             preds['maps'] = post_text_det_inputs
             post_result = self.postprocess_op(preds, post_shape_list_inputs)
             dt_boxes = post_result[0]['points']
-            dt_boxes = self.filter_tag_det_res(dt_boxes, (530, 398, 3))
+            dt_boxes = self.filter_tag_det_res(dt_boxes, img_shape)
 
 
             out_tensor_0 = pb_utils.Tensor("post_det_output", dt_boxes.astype(self.output0_dtype))
