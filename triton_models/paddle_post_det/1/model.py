@@ -63,14 +63,29 @@ class TritonPythonModel:
             post_text_det_inputs = pb_utils.get_input_tensor_by_name(request, "post_det_input").as_numpy()
             post_shape_list_inputs = pb_utils.get_input_tensor_by_name(request, "post_shape_list_input").as_numpy()
 
-            img_shape = (post_shape_list_inputs[0][0], post_shape_list_inputs[0][1], 3)
             preds = {}
             preds['maps'] = post_text_det_inputs
             post_result = self.postprocess_op(preds, post_shape_list_inputs)
-            dt_boxes = post_result[0]['points']
-            dt_boxes = self.filter_tag_det_res(dt_boxes, img_shape)
+            batch_size = post_text_det_inputs.shape[0]
+            tmp_results = []
+            for i in range(batch_size):
+                dt_boxes = post_result[i]['points']
+                img_shape = (post_shape_list_inputs[i][0], post_shape_list_inputs[i][1], 3)
+                dt_boxes = self.filter_tag_det_res(dt_boxes, img_shape)
+                tmp_results.append(dt_boxes)
 
-
+            max_shape = max([item.shape[0] for item in tmp_results])
+            results = []
+            for tmp_result in tmp_results:
+                extra = max_shape - tmp_result.shape[0]
+                if extra != 0:
+                    dummy_array = np.ones((extra, 4, 2), dtype=np.float32) * -1
+                    result = np.concatenate((tmp_result, dummy_array), axis=0)
+                else:
+                    result = tmp_result
+                results.append(result)
+            results = np.ascontiguousarray(results, dtype=self.output0_dtype)
+            
             out_tensor_0 = pb_utils.Tensor("post_det_output", dt_boxes.astype(self.output0_dtype))
             inference_response = pb_utils.InferenceResponse(output_tensors=[out_tensor_0])
             responses.append(inference_response)
