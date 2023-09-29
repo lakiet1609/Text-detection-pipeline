@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 import time
 import sys
+import copy
 
 import utility as utility
 from ppocr.utils.logging import get_logger
@@ -20,28 +21,20 @@ import json
 logger = get_logger()
 
 class TextDetector(object):
-    def __init__(self, args):
-        self.args = args
-        self.det_algorithm = args.det_algorithm
-        self.use_onnx = args.use_onnx
-        self.predictor, self.input_tensor, self.output_tensors, self.config = utility.create_predictor(args, 'det', logger)
-        self.model_name = "paddle_infer_text_det"
+    def __init__(self):
+        self.model_name = "paddle_text_det"
         self.url = '192.168.1.10:8001'
         self.triton_client = grpcclient.InferenceServerClient(url=self.url, verbose=False)
 
     def __call__(self, img):
-        #Text Preprocess
-        img_from_triton = deepcopy(img)
         inputs = []
         outputs = []
-        img_from_triton = np.expand_dims(img_from_triton, axis=0)
-        img_from_triton = np.transpose(img_from_triton, (0, 3, 1, 2))
-        img_tri_shape = list(img_from_triton.shape)
+        img_tri_shape = list(img.shape)
         
         inputs.append(grpcclient.InferInput('images', img_tri_shape, "UINT8"))
         outputs.append(grpcclient.InferRequestedOutput('text_det_output'))
-        inputs[0].set_data_from_numpy(img_from_triton)
-        results = self.triton_client.infer(model_name="paddle_text_det",
+        inputs[0].set_data_from_numpy(img)
+        results = self.triton_client.infer(model_name=self.model_name,
                                            inputs=inputs,
                                            outputs=outputs)
         
@@ -49,23 +42,22 @@ class TextDetector(object):
         return text_det_output
 
 if __name__ == "__main__":
-    args = utility.parse_args()
-    
-    draw_img_save = "./inference_results"
-    
-    if not os.path.exists(draw_img_save):
-        os.makedirs(draw_img_save)
-    
-    # image_file_list = get_image_file_list(args.image_dir)
-    
-    text_detector = TextDetector(args)
-    
-    img_path = args.image_dir
-    img = cv2.imread(img_path)
-    dt_boxes = text_detector(img)
-    
-    src_im = utility.draw_text_det_res(dt_boxes, img_path)
-    
-    cv2.imwrite(os.path.join(draw_img_save, 'result.jpg'), src_im)
+    text_detector = TextDetector()
+
+    img1 = cv2.imread("doc/imgs/ger_2.jpg")
+    img1 = cv2.resize(img1, (640,640))
+
+    img2 = cv2.imread("doc/imgs/12.jpg")
+    img2 = cv2.resize(img2, (640,640))
+    imgs = [img1, img2]
+    ori_imgs = copy.deepcopy(imgs)
+    imgs = np.array(imgs)
+    imgs  = np.transpose(imgs, (0, 3, 1, 2))
+
+    dt_boxes= text_detector(imgs)
+    print(dt_boxes.shape)
+    for i,dt_bbox in enumerate (dt_boxes):
+        src_im = utility.draw_text_det_res(dt_boxes[i], ori_imgs[i])
+        cv2.imwrite(f"result_{i}.jpg", src_im)
  
 
