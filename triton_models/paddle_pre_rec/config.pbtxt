@@ -1,0 +1,28 @@
+name: "paddle_pre_rec"
+backend: "python"
+max_batch_size: 6
+input [
+  {
+    name: "pre_images"
+    data_type: TYPE_UINT8
+    dims: [3,-1,-1]
+  },
+  {
+    name: "pre_dt_boxes"
+    data_type: TYPE_FP32
+    dims: [4,2]
+  }
+]
+output [
+  {
+    name: "pre_rec_output"
+    data_type: TYPE_FP32
+    dims: [3, 48, -1]
+  }
+]
+instance_group [
+    {
+      count: 1
+      kind: KIND_GPU
+    }
+]

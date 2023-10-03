@@ -59,5 +59,6 @@ if __name__ == "__main__":
     for i,dt_bbox in enumerate (dt_boxes):
         src_im = utility.draw_text_det_res(dt_boxes[i], ori_imgs[i])
         cv2.imwrite(f"result_{i}.jpg", src_im)
- 
+
+
 
