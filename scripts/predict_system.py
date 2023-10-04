@@ -32,11 +32,11 @@ class TextSystem(object):
         self.crop_image_res_index = 0
 
     def __call__(self, img):
-        ori_im = img.copy()
         img = np.expand_dims(img, axis=0)
         img = np.transpose(img, (0, 3, 1, 2))
         
         dt_boxes = self.text_detector(img)
+        
         rec_res = self.text_recognizer(img, dt_boxes)
         
         filter_boxes, filter_rec_res = [], []

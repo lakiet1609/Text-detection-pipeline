@@ -4,6 +4,7 @@ import json
 import math
 import cv2
 from copy import deepcopy
+import logging
 
 
 class TritonPythonModel:
@@ -11,7 +12,9 @@ class TritonPythonModel:
         self.model_config = json.loads(args["model_config"])
         output_config = pb_utils.get_output_config_by_name(self.model_config, "pre_rec_output")
         self.output_dtype = pb_utils.triton_string_to_numpy(output_config["data_type"])
-    
+        self.rec_image_shape = [3, 48, 320]
+        self.logger = logging
+   
     def resize_norm_img(self, img, max_wh_ratio):
         imgC, imgH, imgW = self.rec_image_shape
 
@@ -78,6 +81,9 @@ class TritonPythonModel:
         responses = []
         for request in requests:
             image = pb_utils.get_input_tensor_by_name(request, "pre_images").as_numpy()  
+            image = np.squeeze(image, axis=0)
+            image = np.transpose(image, (1,2,0))
+
             dt_boxes = pb_utils.get_input_tensor_by_name(request, "pre_dt_boxes").as_numpy()  
 
             if dt_boxes is None:
@@ -108,12 +114,10 @@ class TritonPythonModel:
                 norm_img_batch.append(norm_img)
 
             norm_img_batch = np.concatenate(norm_img_batch)
-            norm_img_batch = norm_img_batch.copy()
-
             results = np.ascontiguousarray(norm_img_batch, dtype=self.output_dtype)
+            
             out_tensor = pb_utils.Tensor('pre_rec_output', results)
             inference_response = pb_utils.InferenceResponse(output_tensors=[out_tensor])
-
             responses.append(inference_response)
         
         return responses
