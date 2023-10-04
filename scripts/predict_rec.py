@@ -1,16 +1,3 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import os
 import sys
 from PIL import Image
@@ -49,7 +36,7 @@ class TextRecognizer(object):
         self.postprocess_op = build_post_process(postprocess_params)
         self.predictor, self.input_tensor, self.output_tensors, self.config = utility.create_predictor(args, 'rec', logger)
         self.url = '192.168.1.10:8001'
-        # self.model_name = 'paddle_text_det'
+        self.model_name = 'paddle_text_rec'
         self.triton_client = grpcclient.InferenceServerClient(url = self.url, verbose = False)
 
     def __call__(self, img, dt_boxes):
@@ -63,36 +50,37 @@ class TextRecognizer(object):
         inputs.append(grpcclient.InferInput('pre_images', ori_im_shape, 'UINT8'))
         inputs.append(grpcclient.InferInput('pre_dt_boxes', dt_boxes_shape, 'FP32'))
 
-        outputs.append(grpcclient.InferRequestedOutput('pre_rec_output'))
+        outputs.append(grpcclient.InferRequestedOutput('infer_text_rec_output'))
         
         inputs[0].set_data_from_numpy(img)
         inputs[1].set_data_from_numpy(dt_boxes)
 
-        results = self.triton_client.infer(model_name = 'paddle_pre_rec',
+        results = self.triton_client.infer(model_name = self.model_name,
                                            inputs = inputs,
                                            outputs = outputs)
 
-        pre_rec_outputs = results.as_numpy('pre_rec_output')
+        infer_rec_result = results.as_numpy('infer_text_rec_output')
+        print(infer_rec_result.shape)
         
-        # Infer 
-        # Create client for triton server
-        inputs = []
-        outputs = []
-        pre_rec_outputs_shape = list(pre_rec_outputs.shape)
+        # # Infer 
+        # # Create client for triton server
+        # inputs = []
+        # outputs = []
+        # pre_rec_outputs_shape = list(pre_rec_outputs.shape)
         
-        inputs.append(grpcclient.InferInput('x', pre_rec_outputs_shape, 'FP32'))
-        outputs.append(grpcclient.InferRequestedOutput('softmax_2.tmp_0'))
+        # inputs.append(grpcclient.InferInput('x', pre_rec_outputs_shape, 'FP32'))
+        # outputs.append(grpcclient.InferRequestedOutput('softmax_2.tmp_0'))
         
-        inputs[0].set_data_from_numpy(pre_rec_outputs)
+        # inputs[0].set_data_from_numpy(pre_rec_outputs)
 
-        results = self.triton_client.infer(model_name = 'paddle_infer_text_rec',
-                                           inputs = inputs,
-                                           outputs = outputs)
+        # results = self.triton_client.infer(model_name = 'paddle_infer_text_rec',
+        #                                    inputs = inputs,
+        #                                    outputs = outputs)
 
-        infer_text_rec_outputs = results.as_numpy('softmax_2.tmp_0')
+        # infer_text_rec_outputs = results.as_numpy('softmax_2.tmp_0')
         
         #Post-process
-        rec_result = self.postprocess_op(infer_text_rec_outputs)
+        rec_result = self.postprocess_op(infer_rec_result)
 
         return rec_result
 

@@ -6,7 +6,6 @@ import cv2
 from copy import deepcopy
 import logging
 
-
 class TritonPythonModel:
     def initialize(self, args):
         self.model_config = json.loads(args["model_config"])
