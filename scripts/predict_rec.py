@@ -53,7 +53,8 @@ class TextRecognizer(object):
         inputs.append(grpcclient.InferInput('pre_images', ori_im_shape, 'UINT8'))
         inputs.append(grpcclient.InferInput('pre_dt_boxes', dt_boxes_shape, 'FP32'))
 
-        outputs.append(grpcclient.InferRequestedOutput('infer_text_rec_output'))
+        outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
+        outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
         
         inputs[0].set_data_from_numpy(img)
         inputs[1].set_data_from_numpy(dt_boxes)
@@ -62,33 +63,33 @@ class TextRecognizer(object):
                                            inputs = inputs,
                                            outputs = outputs)
 
-        infer_rec_result = results.as_numpy('infer_text_rec_output')
-
-        # Create client for triton server for post-process
-        inputs = []
-        outputs = []
-        
-        infer_rec_result_shape = list(infer_rec_result.shape)
-        
-        inputs.append(grpcclient.InferInput('post_rec_input', infer_rec_result_shape, 'FP32'))
-
-        outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
-        outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
-        
-        inputs[0].set_data_from_numpy(infer_rec_result)
-
-        results = self.triton_client.infer(model_name = 'paddle_post_rec',
-                                           inputs = inputs,
-                                           outputs = outputs)
-
         texts = results.as_numpy('post_rec_output')
         scores = results.as_numpy('post_rec_output_score')
+
+        # # Create client for triton server for post-process
+        # inputs = []
+        # outputs = []
+        
+        # infer_rec_result_shape = list(infer_rec_result.shape)
+        
+        # inputs.append(grpcclient.InferInput('post_rec_input', infer_rec_result_shape, 'FP32'))
+
+        # outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
+        # outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
+        
+        # inputs[0].set_data_from_numpy(infer_rec_result)
+
+        # results = self.triton_client.infer(model_name = 'paddle_post_rec',
+        #                                    inputs = inputs,
+        #                                    outputs = outputs)
+
+        # texts = results.as_numpy('post_rec_output')
+        # scores = results.as_numpy('post_rec_output_score')
 
         for encoded_text, score in zip(texts, scores):
             plain_text = self.decode(encoded_text)
             print(plain_text, score)
-        # print(post_rec_output, post_rec_output_score)
-
+        
         return texts, scores
 
 
