@@ -13,7 +13,6 @@ import numpy as np
 import math
 import time
 import traceback
-# import paddle
 
 import utility 
 from ppocr.postprocess import build_post_process
@@ -25,22 +24,26 @@ logger = get_logger()
 
 class TextRecognizer(object):
     def __init__(self, args):
-        self.rec_batch_num = args.rec_batch_num
-        self.rec_algorithm = args.rec_algorithm
-        postprocess_params = {
-            'name': 'CTCLabelDecode',
-            "character_dict_path": args.rec_char_dict_path,
-            "use_space_char": args.use_space_char
-        }
+        full_dict_path  = '/home/lakiet/study/Projects/Text-detection-pipeline/scripts/ppocr/utils/en_dict.txt'
+        self.dictionary = (open(full_dict_path, 'r').read().split('\n'))
+        self.dictionary_map = {x: i for i, x in enumerate(self.dictionary)}
+        self.max_length = 50
 
-        self.postprocess_op = build_post_process(postprocess_params)
-        self.predictor, self.input_tensor, self.output_tensors, self.config = utility.create_predictor(args, 'rec', logger)
         self.url = '192.168.1.10:8001'
         self.model_name = 'paddle_text_rec'
         self.triton_client = grpcclient.InferenceServerClient(url = self.url, verbose = False)
+    
+    def decode(self, encoded_text):
+        text = ''
+        for item in encoded_text:
+            if item == -1:
+                continue
+            char = self.dictionary[int(item)]
+            text += char
+        return text
 
     def __call__(self, img, dt_boxes):
-        # Create client for triton server for preprocess
+        # Create client for triton server for preprocess and inference
         inputs = []
         outputs = []
         
@@ -60,29 +63,33 @@ class TextRecognizer(object):
                                            outputs = outputs)
 
         infer_rec_result = results.as_numpy('infer_text_rec_output')
-        print(infer_rec_result.shape)
-        
-        # # Infer 
-        # # Create client for triton server
-        # inputs = []
-        # outputs = []
-        # pre_rec_outputs_shape = list(pre_rec_outputs.shape)
-        
-        # inputs.append(grpcclient.InferInput('x', pre_rec_outputs_shape, 'FP32'))
-        # outputs.append(grpcclient.InferRequestedOutput('softmax_2.tmp_0'))
-        
-        # inputs[0].set_data_from_numpy(pre_rec_outputs)
 
-        # results = self.triton_client.infer(model_name = 'paddle_infer_text_rec',
-        #                                    inputs = inputs,
-        #                                    outputs = outputs)
-
-        # infer_text_rec_outputs = results.as_numpy('softmax_2.tmp_0')
+        # Create client for triton server for post-process
+        inputs = []
+        outputs = []
         
-        #Post-process
-        rec_result = self.postprocess_op(infer_rec_result)
+        infer_rec_result_shape = list(infer_rec_result.shape)
+        
+        inputs.append(grpcclient.InferInput('post_rec_input', infer_rec_result_shape, 'FP32'))
 
-        return rec_result
+        outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
+        outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
+        
+        inputs[0].set_data_from_numpy(infer_rec_result)
+
+        results = self.triton_client.infer(model_name = 'paddle_post_rec',
+                                           inputs = inputs,
+                                           outputs = outputs)
+
+        texts = results.as_numpy('post_rec_output')
+        scores = results.as_numpy('post_rec_output_score')
+
+        for encoded_text, score in zip(texts, scores):
+            plain_text = self.decode(encoded_text)
+            print(plain_text, score)
+        # print(post_rec_output, post_rec_output_score)
+
+        return texts, scores
 
 
 

@@ -39,21 +39,20 @@ class TextSystem(object):
         
         rec_res = self.text_recognizer(img, dt_boxes)
         
-        filter_boxes, filter_rec_res = [], []
-        for box, rec_result in zip(dt_boxes, rec_res):
-            _, score = rec_result
-            if score >= self.drop_score:
-                filter_boxes.append(box)
-                filter_rec_res.append(rec_result)
+        # filter_boxes, filter_rec_res = [], []
+        
+        # for box, rec_result in zip(dt_boxes, rec_res):
+        #     _, score = rec_result
+        #     if score >= self.drop_score:
+        #         filter_boxes.append(box)
+        #         filter_rec_res.append(rec_result)
 
-        return filter_boxes, filter_rec_res
+        # return filter_boxes, filter_rec_res
 
 def main(args):
     text_sys = TextSystem(args)
     img = cv2.imread(args.image_dir)
-    imgs = [img]
-    for index, img in enumerate(imgs):
-        dt_boxes, rec_res = text_sys(img)
+    text_sys(img)
 
 
 if __name__ == "__main__":
