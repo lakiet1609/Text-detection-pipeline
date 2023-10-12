@@ -26,7 +26,7 @@ class TextSystem(object):
         if not args.show_log:
             logger.setLevel(logging.INFO)
         self.text_detector = predict_det.TextDetector()
-        self.text_recognizer = predict_rec.TextRecognizer(args)
+        self.text_recognizer = predict_rec.TextRecognizer()
         self.drop_score = args.drop_score
         self.args = args
         self.crop_image_res_index = 0
@@ -34,10 +34,8 @@ class TextSystem(object):
     def __call__(self, img):
         img = np.expand_dims(img, axis=0)
         img = np.transpose(img, (0, 3, 1, 2))
-        
-        dt_boxes = self.text_detector(img)
-        
-        rec_res = self.text_recognizer(img, dt_boxes)
+             
+        rec_res = self.text_recognizer(img)
         
         # filter_boxes, filter_rec_res = [], []
         

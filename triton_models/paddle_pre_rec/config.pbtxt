@@ -3,7 +3,7 @@ backend: "python"
 max_batch_size: 6
 input [
   {
-    name: "pre_images"
+    name: "images"
     data_type: TYPE_UINT8
     dims: [3,-1,-1]
   },

@@ -12,7 +12,7 @@ output [
   {
     name: "text_det_output"
     data_type: TYPE_FP32
-    dims: [4,2]
+    dims: [-1,4,2]
   }
 ]
 

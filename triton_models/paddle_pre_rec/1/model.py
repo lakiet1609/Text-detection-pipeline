@@ -79,7 +79,7 @@ class TritonPythonModel:
     def execute(self, requests):
         responses = []
         for request in requests:
-            image = pb_utils.get_input_tensor_by_name(request, "pre_images").as_numpy()  
+            image = pb_utils.get_input_tensor_by_name(request, "images").as_numpy()  
             image = np.squeeze(image, axis=0)
             image = np.transpose(image, (1,2,0))
 

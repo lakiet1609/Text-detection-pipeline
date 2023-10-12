@@ -23,14 +23,14 @@ logger = get_logger()
 
 
 class TextRecognizer(object):
-    def __init__(self, args):
+    def __init__(self):
         full_dict_path  = '/home/lakiet/study/Projects/Text-detection-pipeline/scripts/ppocr/utils/en_dict.txt'
         self.dictionary = (open(full_dict_path, 'r').read().split('\n'))
         self.dictionary_map = {x: i for i, x in enumerate(self.dictionary)}
         self.max_length = 50
 
         self.url = '192.168.1.10:8001'
-        self.model_name = 'paddle_text_rec'
+        self.model_name = 'ocr'
         self.triton_client = grpcclient.InferenceServerClient(url = self.url, verbose = False)
     
     def decode(self, encoded_text):
@@ -42,55 +42,35 @@ class TextRecognizer(object):
             text += char
         return text
 
-    def __call__(self, img, dt_boxes):
+    def __call__(self, img):
         # Create client for triton server for preprocess and inference
         inputs = []
         outputs = []
         
         ori_im_shape = list(img.shape)
-        dt_boxes_shape = list(dt_boxes.shape)
-        
-        inputs.append(grpcclient.InferInput('pre_images', ori_im_shape, 'UINT8'))
-        inputs.append(grpcclient.InferInput('pre_dt_boxes', dt_boxes_shape, 'FP32'))
 
-        outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
-        outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
+        inputs.append(grpcclient.InferInput('images', ori_im_shape, 'UINT8'))
+
+        outputs.append(grpcclient.InferRequestedOutput('text_det_output'))
+        outputs.append(grpcclient.InferRequestedOutput('text_rec_output'))
+        outputs.append(grpcclient.InferRequestedOutput('text_rec_output_score'))
         
         inputs[0].set_data_from_numpy(img)
-        inputs[1].set_data_from_numpy(dt_boxes)
 
         results = self.triton_client.infer(model_name = self.model_name,
                                            inputs = inputs,
                                            outputs = outputs)
 
-        texts = results.as_numpy('post_rec_output')
-        scores = results.as_numpy('post_rec_output_score')
+        det_boxes = results.as_numpy('text_det_output')
+        texts = results.as_numpy('text_rec_output')
+        scores = results.as_numpy('text_rec_output_score')
 
-        # # Create client for triton server for post-process
-        # inputs = []
-        # outputs = []
-        
-        # infer_rec_result_shape = list(infer_rec_result.shape)
-        
-        # inputs.append(grpcclient.InferInput('post_rec_input', infer_rec_result_shape, 'FP32'))
-
-        # outputs.append(grpcclient.InferRequestedOutput('post_rec_output'))
-        # outputs.append(grpcclient.InferRequestedOutput('post_rec_output_score'))
-        
-        # inputs[0].set_data_from_numpy(infer_rec_result)
-
-        # results = self.triton_client.infer(model_name = 'paddle_post_rec',
-        #                                    inputs = inputs,
-        #                                    outputs = outputs)
-
-        # texts = results.as_numpy('post_rec_output')
-        # scores = results.as_numpy('post_rec_output_score')
-
-        for encoded_text, score in zip(texts, scores):
+        for i, (encoded_text, score) in enumerate(zip(texts, scores)):
             plain_text = self.decode(encoded_text)
             print(plain_text, score)
+            print(det_boxes[0][i])
         
-        return texts, scores
+        return det_boxes, texts, scores
 
 
 
